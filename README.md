@@ -134,7 +134,15 @@ Ramyasri Swarna — Lead Software Developer**
 Founded in 2025; pilot testing has been carried out in selected semi-rural areas of Andhra Pradesh, according to the project team.
 Disclaimer
 This project is intended to improve access to health information and services. It does not replace medical advice, diagnosis, or treatment. Features and availability depend on the actual implementation, device capabilities, network coverage, permissions, and service-provider availability. 
-Sample Test:
+
+**Test Cases:**
+
 <img width="2400" height="2686" alt="Sanjeevani_AI_Test_Cases" src="https://github.com/user-attachments/assets/348287b3-786c-47ee-8935-3294c206996e" />
 Sample test data
 See `../sample_data/sample_data.json`. All people, contact numbers, centre names, and record contents must be synthetic placeholders. Do not send test SOS alerts to real emergency services or real contacts.
+
+**Technical Design**
+<img width="2400" height="1918" alt="Sanjeevani_AI_Technical_Design_Part4" src="https://github.com/user-attachments/assets/37fe377a-d674-4932-8b4a-7c707feca3dc" />
+<img width="2400" height="2468" alt="Sanjeevani_AI_Technical_Design_Part3" src="https://github.com/user-attachments/assets/1f1fa725-bc87-4d59-9c8a-699e96442a23" />
+<img width="2400" height="1857" alt="Sanjeevani_AI_Technical_Design_Part2" src="https://github.com/user-attachments/assets/f040fa04-d610-49b2-80dd-24c0a86eb716" />
+<img width="2400" height="2505" alt="Sanjeevani_AI_Technical_Design_Part1" src="https://github.com/user-attachments/assets/fbbb1c78-bfba-4ceb-b4e5-ebddd654103b" />
