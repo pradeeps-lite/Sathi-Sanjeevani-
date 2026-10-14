@@ -152,3 +152,6 @@ See `../sample_data/sample_data.json`. All people, contact numbers, centre names
 <img width="2400" height="1857" alt="Sanjeevani_AI_Technical_Design_Part2" src="https://github.com/user-attachments/assets/f040fa04-d610-49b2-80dd-24c0a86eb716" />
 <img width="2400" height="2468" alt="Sanjeevani_AI_Technical_Design_Part3" src="https://github.com/user-attachments/assets/1f1fa725-bc87-4d59-9c8a-699e96442a23" />
 <img width="2400" height="1918" alt="Sanjeevani_AI_Technical_Design_Part4" src="https://github.com/user-attachments/assets/37fe377a-d674-4932-8b4a-7c707feca3dc" />
+
+**Working Scenario**
+<img width="1149" height="1369" alt="SOS Image" src="https://github.com/user-attachments/assets/4ec90e0e-8984-46d4-a624-eaaf22af22bd" />
