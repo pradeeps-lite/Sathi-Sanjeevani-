@@ -1,4 +1,5 @@
 **Sanjeevani AI**
+
 **AI-powered healthcare companion for rural India
 Sanjeevani AI is designed to make essential healthcare information easier to access in rural and underserved communities. The product vision focuses on a simple, multilingual experience that can support users with limited or unreliable internet access.**
 > **Important:** Sanjeevani AI is an information and navigation aid, not a replacement for a qualified healthcare professional. AI-generated information must not be treated as a diagnosis or prescription. In an emergency, contact local emergency services or visit the nearest health facility.
