@@ -1,8 +1,32 @@
-node_modules/
-build/
-dist/
-coverage/
-.DS_Store
-*.log
-.env*
+# Secrets and local configuration
+.env
+.env.*
 !.env.example
+
+# Dependencies / generated outputs (adapt for your stack)
+node_modules/
+dist/
+build/
+coverage/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Signing keys and credentials
+*.keystore
+*.jks
+*.p12
+*.pem
+service-account*.json
