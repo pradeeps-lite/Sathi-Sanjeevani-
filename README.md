@@ -1,6 +1,6 @@
 **Sanjeevani AI**
-AI-powered healthcare companion for rural India
-Sanjeevani AI is designed to make essential healthcare information easier to access in rural and underserved communities. The product vision focuses on a simple, multilingual experience that can support users with limited or unreliable internet access.
+**AI-powered healthcare companion for rural India
+Sanjeevani AI is designed to make essential healthcare information easier to access in rural and underserved communities. The product vision focuses on a simple, multilingual experience that can support users with limited or unreliable internet access.**
 > **Important:** Sanjeevani AI is an information and navigation aid, not a replacement for a qualified healthcare professional. AI-generated information must not be treated as a diagnosis or prescription. In an emergency, contact local emergency services or visit the nearest health facility.
 Key capabilities
 Offline-first access: Make selected saved information and core screens available when connectivity is limited.
@@ -143,6 +143,7 @@ See `../sample_data/sample_data.json`. All people, contact numbers, centre names
 
 
 **Technical Design**
+
 <img width="2400" height="2505" alt="Sanjeevani_AI_Technical_Design_Part1" src="https://github.com/user-attachments/assets/fbbb1c78-bfba-4ceb-b4e5-ebddd654103b" />
 <img width="2400" height="1857" alt="Sanjeevani_AI_Technical_Design_Part2" src="https://github.com/user-attachments/assets/f040fa04-d610-49b2-80dd-24c0a86eb716" />
 <img width="2400" height="2468" alt="Sanjeevani_AI_Technical_Design_Part3" src="https://github.com/user-attachments/assets/1f1fa725-bc87-4d59-9c8a-699e96442a23" />
