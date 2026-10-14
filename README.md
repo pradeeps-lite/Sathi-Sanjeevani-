@@ -27,6 +27,9 @@ Git
 The relevant mobile SDK and IDE (for example, Android Studio)
 The language/package manager used by the project
 Access credentials for any external services used by the app
+
+**Run the Prototype Application In real time (Deployed Project):** https://sathi-sanjeevani.vercel.app/
+
 Setup
 Clone the repository:
 ```bash
