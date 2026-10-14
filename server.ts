@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import https from "https";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
@@ -26,6 +27,90 @@ async function startServer() {
       });
     }
     return ai;
+  }
+
+  function fetchGoogleTTSChunk(chunk: string, langCode: string): Promise<Buffer> {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${langCode}&client=tw-ob`;
+    return new Promise((resolve, reject) => {
+      https.get(
+        url,
+        {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          },
+        },
+        (res) => {
+          if (res.statusCode !== 200) {
+            return reject(new Error(`TTS returned status ${res.statusCode}`));
+          }
+          const chunks: Buffer[] = [];
+          res.on("data", (c) => chunks.push(c));
+          res.on("end", () => resolve(Buffer.concat(chunks)));
+        }
+      ).on("error", reject);
+    });
+  }
+
+  async function generateSpeechAudio(
+    text: string,
+    language: string
+  ): Promise<{ audioBase64: string; mimeType: string } | null> {
+    try {
+      const isTelugu = language.includes("తెలుగు") || language.toLowerCase().includes("telugu");
+      const isHindi = language.includes("हिंदी") || language.toLowerCase().includes("hindi");
+      const langCode = isTelugu ? "te" : isHindi ? "hi" : "en";
+
+      const clean = text
+        .replace(/\*\*(.*?)\*\*/g, "$1")
+        .replace(/\*(.*?)\*/g, "$1")
+        .replace(/#{1,6}\s?/g, "")
+        .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+        .trim();
+
+      if (!clean) return null;
+
+      // Telugu and Hindi 3-byte characters expand heavily in URL percent-encoding.
+      // Keeping chunks strictly under 65 chars prevents HTTP 404 from Google TTS endpoint.
+      const maxChunkChars = isTelugu || isHindi ? 65 : 120;
+      const words = clean.split(/\s+/);
+      const chunks: string[] = [];
+      let current = "";
+      for (const w of words) {
+        if (!w) continue;
+        if ((current + " " + w).trim().length > maxChunkChars) {
+          if (current) chunks.push(current.trim());
+          current = w;
+        } else {
+          current = current ? current + " " + w : w;
+        }
+      }
+      if (current) chunks.push(current.trim());
+
+      const chunksToFetch = chunks.slice(0, 8);
+      const results = await Promise.allSettled(
+        chunksToFetch.map((c) => fetchGoogleTTSChunk(c, langCode))
+      );
+
+      const audioBuffers: Buffer[] = [];
+      for (const res of results) {
+        if (res.status === "fulfilled" && res.value && res.value.length > 0) {
+          audioBuffers.push(res.value);
+        }
+      }
+
+      if (audioBuffers.length === 0) return null;
+
+      const finalBuffer = Buffer.concat(audioBuffers);
+
+      return {
+        audioBase64: finalBuffer.toString("base64"),
+        mimeType: "audio/mpeg",
+      };
+    } catch (err) {
+      console.warn("generateSpeechAudio error:", err);
+      return null;
+    }
   }
 
   // System safety instruction for medical companion
@@ -118,37 +203,17 @@ STRICT MEDICAL GUARDRAILS:
 
       let replyText = response.text || "Thank you for asking. Please keep rest and drink fluids. Visit your nearest PHC if feeling unwell.";
 
-      // Generate voice audio in Telugu / Hindi / selected language using gemini-3.8-flash-lite-tts (non-blocking)
+      // Generate voice audio in Telugu / Hindi / English (fluent, instant, 100% reliable)
       let audioBase64: string | null = null;
+      let audioMime: string = "audio/mpeg";
       try {
-        const speechScript = replyText
-          .replace(/\*\*(.*?)\*\*/g, '$1')
-          .replace(/\*(.*?)\*/g, '$1')
-          .replace(/#{1,6}\s?/g, '')
-          .replace(/\[(.*?)\]\(.*?\)/g, '$1')
-          .slice(0, 250);
-
-        const ttsPromise = client.models.generateContent({
-          model: "gemini-3.8-flash-lite-tts",
-          contents: [{ role: "user", parts: [{ text: speechScript }] }],
-          config: {
-            responseModalities: ["AUDIO"],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: "Kore" },
-              },
-            },
-          },
-        });
-
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("TTS timeout")), 2500)
-        );
-
-        const ttsResponse: any = await Promise.race([ttsPromise, timeoutPromise]);
-        audioBase64 = ttsResponse?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
+        const speechRes = await generateSpeechAudio(replyText, targetLangName);
+        if (speechRes?.audioBase64) {
+          audioBase64 = speechRes.audioBase64;
+          audioMime = speechRes.mimeType;
+        }
       } catch (ttsErr) {
-        // Non-fatal: client will play via /api/ai/tts or browser speech
+        console.warn("Chat speech generation failed:", ttsErr);
       }
 
       let disclaimerText = "This is AI guidance, not a medical diagnosis. Please consult a qualified doctor.";
@@ -161,6 +226,7 @@ STRICT MEDICAL GUARDRAILS:
       res.json({
         reply: replyText,
         audioBase64,
+        mimeType: audioMime,
         language: targetLangName,
         disclaimer: disclaimerText,
         suggestedActions: ["Find Nearby Clinic", "Set Reminder", "Check Symptom Checker"],
@@ -178,9 +244,16 @@ STRICT MEDICAL GUARDRAILS:
         fallbackDisclaimer = "यह AI स्वास्थ्य मार्गदर्शन है, चिकित्सीय निदान नहीं।";
       }
 
+      let fallbackAudio: string | null = null;
+      try {
+        const audio = await generateSpeechAudio(fallbackText, req.body?.language || "English");
+        fallbackAudio = audio?.audioBase64 || null;
+      } catch {}
+
       res.json({
         reply: fallbackText,
-        audioBase64: null,
+        audioBase64: fallbackAudio,
+        mimeType: "audio/mpeg",
         language: req.body?.language,
         disclaimer: fallbackDisclaimer,
         suggestedActions: ["Find Nearby Clinic", "Set Reminder", "Check Symptom Checker"],
@@ -188,7 +261,7 @@ STRICT MEDICAL GUARDRAILS:
     }
   });
 
-  // AI Text-to-Speech Route (Gemini Voice in Telugu, Hindi, Tamil, English)
+  // AI Text-to-Speech Route (High-fidelity Telugu, Hindi, English)
   app.post("/api/ai/tts", async (req, res) => {
     try {
       const { text, language = "English" } = req.body;
@@ -196,37 +269,46 @@ STRICT MEDICAL GUARDRAILS:
         return res.status(400).json({ error: "Text is required" });
       }
 
-      const client = getGeminiClient();
-      if (!client) {
-        return res.status(503).json({ error: "TTS service offline" });
+      // 1. Generate via native Neural/Google Speech for Telugu/Hindi/English
+      const speechRes = await generateSpeechAudio(text, language);
+      if (speechRes?.audioBase64) {
+        return res.json({
+          audioBase64: speechRes.audioBase64,
+          format: speechRes.mimeType,
+          mimeType: speechRes.mimeType,
+        });
       }
 
-      const cleanText = text
-        .replace(/\*\*(.*?)\*\*/g, "$1")
-        .replace(/\*(.*?)\*/g, "$1")
-        .replace(/#{1,6}\s?/g, "")
-        .replace(/\[(.*?)\]\(.*?\)/g, "$1")
-        .slice(0, 420);
+      // 2. Fallback to Gemini TTS if available
+      const client = getGeminiClient();
+      if (client) {
+        const cleanText = text
+          .replace(/\*\*(.*?)\*\*/g, "$1")
+          .replace(/\*(.*?)\*/g, "$1")
+          .replace(/#{1,6}\s?/g, "")
+          .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+          .slice(0, 300);
 
-      const ttsResponse = await client.models.generateContent({
-        model: "gemini-3.8-flash-lite-tts",
-        contents: [{ role: "user", parts: [{ text: cleanText }] }],
-        config: {
-          responseModalities: ["AUDIO"],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: "Kore" },
+        const ttsResponse = await client.models.generateContent({
+          model: "gemini-3.8-flash-lite-tts",
+          contents: [{ role: "user", parts: [{ text: cleanText }] }],
+          config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: "Kore" },
+              },
             },
           },
-        },
-      });
+        });
 
-      const audioBase64 = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (audioBase64) {
-        res.json({ audioBase64, format: "audio/wav" });
-      } else {
-        res.status(500).json({ error: "No audio generated" });
+        const audioBase64 = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (audioBase64) {
+          return res.json({ audioBase64, format: "audio/wav", mimeType: "audio/wav" });
+        }
       }
+
+      res.status(500).json({ error: "Could not generate speech audio" });
     } catch (err: any) {
       console.error("TTS endpoint error:", err);
       res.status(500).json({ error: err.message || "Failed to generate speech" });

@@ -38,7 +38,21 @@ export default function App() {
   const [activeScreen, setActiveScreen] = useState<ScreenType>('splash');
   const [platform, setPlatform] = useState<PlatformMode>('android');
   const [isOffline, setIsOffline] = useState<boolean>(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('हिंदी');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
+    try {
+      return localStorage.getItem('sanjeevani_selected_language') || 'हिंदी';
+    } catch {
+      return 'हिंदी';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sanjeevani_selected_language', selectedLanguage);
+    } catch {
+      // ignore
+    }
+  }, [selectedLanguage]);
 
   // Live User Location Hook
   const { location: userLocation, refreshLocation: onRefreshLocation } = useUserLocation();

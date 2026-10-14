@@ -7,6 +7,7 @@ export async function askAIChat(
 ): Promise<{
   reply: string;
   audioBase64?: string | null;
+  mimeType?: string;
   language?: string;
   disclaimer?: string;
   suggestedActions?: string[];
@@ -88,7 +89,7 @@ export async function askAIChat(
 export async function fetchTTSAudio(
   text: string,
   language: string = 'English'
-): Promise<string | null> {
+): Promise<{ audioBase64: string; mimeType: string } | null> {
   try {
     const res = await fetch('/api/ai/tts', {
       method: 'POST',
@@ -97,7 +98,13 @@ export async function fetchTTSAudio(
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return data.audioBase64 || null;
+    if (data.audioBase64) {
+      return {
+        audioBase64: data.audioBase64,
+        mimeType: data.mimeType || data.format || 'audio/mpeg',
+      };
+    }
+    return null;
   } catch (e) {
     console.warn('fetchTTSAudio error:', e);
     return null;

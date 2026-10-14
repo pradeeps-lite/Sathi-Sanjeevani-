@@ -33,6 +33,7 @@ interface Message {
   disclaimer?: string;
   suggestedActions?: string[];
   audioBase64?: string | null;
+  mimeType?: string;
 }
 
 export const AskAIScreen: React.FC<AskAIScreenProps> = ({
@@ -187,7 +188,9 @@ export const AskAIScreen: React.FC<AskAIScreenProps> = ({
       const matchedVoice =
         voices.find((v) => v.lang.toLowerCase() === targetLang) ||
         voices.find((v) => v.lang.toLowerCase().replace('_', '-') === targetLang) ||
-        voices.find((v) => v.lang.toLowerCase().startsWith(targetLang.slice(0, 2)));
+        voices.find((v) => v.lang.toLowerCase().startsWith(targetLang.slice(0, 2))) ||
+        voices.find((v) => v.lang.toLowerCase().includes('in')) ||
+        voices[0];
 
       if (matchedVoice) {
         utterance.voice = matchedVoice;
@@ -214,12 +217,47 @@ export const AskAIScreen: React.FC<AskAIScreenProps> = ({
     }
   };
 
-  // Speaks text aloud in the designated language using Gemini Voice / Neural audio or Web Speech
+  // Direct Audio URL fallback using Google's native TTS (works across web & mobile)
+  const tryDirectAudioStream = (
+    cleanText: string,
+    langToUse: string,
+    msgId?: string
+  ) => {
+    const isTelugu = langToUse.includes('తెలుగు') || langToUse.toLowerCase().includes('telugu');
+    const isHindi = langToUse.includes('हिंदी') || langToUse.toLowerCase().includes('hindi');
+    const langCode = isTelugu ? 'te' : isHindi ? 'hi' : 'en';
+
+    try {
+      const maxDirectChars = isTelugu || isHindi ? 65 : 120;
+      const directUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(cleanText.slice(0, maxDirectChars))}&tl=${langCode}&client=tw-ob`;
+      const audio = activeAudioRef.current || new Audio();
+      activeAudioRef.current = audio;
+      audio.src = directUrl;
+
+      audio.onended = () => {
+        setIsSpeaking(false);
+        setCurrentSpeakingMsgId(null);
+        activeAudioRef.current = null;
+      };
+      audio.onerror = () => {
+        fallbackSpeechSynthesis(cleanText, msgId, getLangDetails(langToUse).code);
+      };
+
+      audio.play().catch(() => {
+        fallbackSpeechSynthesis(cleanText, msgId, getLangDetails(langToUse).code);
+      });
+    } catch {
+      fallbackSpeechSynthesis(cleanText, msgId, getLangDetails(langToUse).code);
+    }
+  };
+
+  // Speaks text aloud in the designated language (Telugu, Hindi, English)
   const speakText = async (
     text: string,
     msgId?: string,
     providedAudioBase64?: string | null,
-    overrideLang?: string
+    overrideLang?: string,
+    providedMimeType?: string
   ) => {
     stopSpeaking();
 
@@ -239,38 +277,55 @@ export const AskAIScreen: React.FC<AskAIScreenProps> = ({
     setIsSpeaking(true);
     if (msgId) setCurrentSpeakingMsgId(msgId);
 
-    // 1. If base64 audio already exists from server, or if online, fetch neural audio in Telugu/Hindi
+    // Prime the audio element immediately in user interaction window
+    const audio = activeAudioRef.current || new Audio();
+    activeAudioRef.current = audio;
+
     let audioData = providedAudioBase64;
+    let mimeType = providedMimeType || 'audio/mpeg';
+
+    // 1. If base64 audio already exists from server, or if online, fetch neural audio
     if (!audioData && !isOffline) {
       try {
-        audioData = await fetchTTSAudio(cleanText, langToUse);
+        const ttsRes = await fetchTTSAudio(cleanText, langToUse);
+        if (ttsRes?.audioBase64) {
+          audioData = ttsRes.audioBase64;
+          mimeType = ttsRes.mimeType || 'audio/mpeg';
+        }
       } catch (err) {
-        console.warn('Fetch TTS audio failed, using browser speech fallback', err);
+        console.warn('Fetch TTS audio failed, trying fallback stream', err);
       }
     }
 
     if (audioData) {
       try {
-        const audio = new Audio(`data:audio/wav;base64,${audioData}`);
-        activeAudioRef.current = audio;
+        const audioFormat = audioData.startsWith('UklGR') ? 'audio/wav' : (mimeType || 'audio/mpeg');
+        audio.src = `data:${audioFormat};base64,${audioData}`;
+
         audio.onended = () => {
           setIsSpeaking(false);
           setCurrentSpeakingMsgId(null);
           activeAudioRef.current = null;
         };
-        audio.onerror = () => {
-          activeAudioRef.current = null;
-          fallbackSpeechSynthesis(cleanText, msgId, langInfo.code);
+        audio.onerror = (e) => {
+          console.warn('Base64 audio play error, falling back:', e);
+          tryDirectAudioStream(cleanText, langToUse, msgId);
         };
-        await audio.play();
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+        }
         return;
       } catch (playErr) {
-        console.warn('Audio play error, falling back to speech synthesis:', playErr);
+        console.warn('Audio play error, falling back to direct stream:', playErr);
+        tryDirectAudioStream(cleanText, langToUse, msgId);
+        return;
       }
     }
 
-    // 2. Fallback to native Web Speech Synthesis
-    fallbackSpeechSynthesis(cleanText, msgId, langInfo.code);
+    // 2. Direct audio stream or native speech synthesis
+    tryDirectAudioStream(cleanText, langToUse, msgId);
   };
 
   const handleSend = async (textToSend?: string) => {
@@ -308,12 +363,13 @@ export const AskAIScreen: React.FC<AskAIScreenProps> = ({
         disclaimer: res.disclaimer,
         suggestedActions: res.suggestedActions,
         audioBase64: res.audioBase64,
+        mimeType: res.mimeType,
       };
 
       setMessages((prev) => [...prev, aiMsg]);
 
       // Automatically speak the response aloud in Telugu or Hindi
-      speakText(aiMsg.text, aiMsgId, res.audioBase64, selectedLanguage);
+      speakText(aiMsg.text, aiMsgId, res.audioBase64, selectedLanguage, res.mimeType);
     } catch (err) {
       console.error('Chat error:', err);
     } finally {
@@ -479,8 +535,9 @@ export const AskAIScreen: React.FC<AskAIScreenProps> = ({
             </p>
             <button
               onClick={() => {
-                const currentMsg = messages[messages.length - 1]?.text || getGreetingText(selectedLanguage);
-                speakText(currentMsg, messages[messages.length - 1]?.id || 'm1');
+                const lastMsg = messages[messages.length - 1];
+                const currentMsg = lastMsg?.text || getGreetingText(selectedLanguage);
+                speakText(currentMsg, lastMsg?.id || 'm1', lastMsg?.audioBase64, selectedLanguage, lastMsg?.mimeType);
               }}
               className="text-[10px] font-bold bg-[#2E6B4F]/10 hover:bg-[#2E6B4F]/20 text-[#2E6B4F] px-2 py-0.5 rounded-full flex items-center gap-1 transition"
               title="Test Voice Speech"
@@ -586,7 +643,7 @@ export const AskAIScreen: React.FC<AskAIScreenProps> = ({
                         if (isSpeaking && currentSpeakingMsgId === m.id) {
                           stopSpeaking();
                         } else {
-                          speakText(m.text, m.id, m.audioBase64);
+                          speakText(m.text, m.id, m.audioBase64, selectedLanguage, m.mimeType);
                         }
                       }}
                       className={`px-2.5 py-1 font-bold rounded-lg text-[10px] flex items-center gap-1.5 transition border ${
