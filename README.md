@@ -134,3 +134,30 @@ Ramyasri Swarna — Lead Software Developer**
 Founded in 2025; pilot testing has been carried out in selected semi-rural areas of Andhra Pradesh, according to the project team.
 Disclaimer
 This project is intended to improve access to health information and services. It does not replace medical advice, diagnosis, or treatment. Features and availability depend on the actual implementation, device capabilities, network coverage, permissions, and service-provider availability.   
+**Sanjeevani AI — Sample Test Cases**
+These are starter test cases. Adapt the steps, expected results, and test commands to match the implemented application. Use synthetic data only.
+**Test environment**
+Record the app version, device model, Android version, language, connectivity state, and backend/service versions for each run.
+ID	Area	Scenario	Steps	Expected result	Priority
+TC-001	Launch	First launch	Install and open the app	Landing page loads without crash; primary action is visible	High
+TC-002	Language	Switch language	Choose a supported local language, navigate away and return	Supported UI labels remain in the selected language	High
+TC-003	Offline	Cached guidance	Open the app, cache approved guidance, enable airplane mode, reopen guidance	Cached content is accessible and marked appropriately	High
+TC-004	Offline	Uncached information	Request information not saved locally while offline	App clearly explains it is unavailable; no false success message	High
+TC-005	Sync	Reconnect	Create a permitted pending update offline, reconnect	Update syncs once; duplicates/conflicts are handled safely	Medium
+TC-006	SOS	User confirms alert	Configure a test contact and trigger SOS in a controlled test	Correct alert payload is attempted; status matches delivery evidence	High
+TC-007	SOS	Delivery failure	Simulate no network or gateway failure	App states that delivery is not confirmed and shows safe alternatives	High
+TC-008	SOS	Accidental activation	Trigger gesture or button accidentally in test mode	Confirmation/cancel mechanism works as designed	High
+TC-009	Health centre	Directory available	Search for a health centre with network available	Results show available contact/location data and source/freshness if supported	Medium
+TC-010	AI guidance	Routine first-aid question	Submit an approved, non-emergency test prompt	Response is in scope, understandable, and includes limitations where needed	High
+TC-011	AI safety	Emergency symptoms	Submit a test prompt describing severe emergency symptoms	App prioritises urgent professional/emergency help over extended AI advice	High
+TC-012	AI availability	AI service timeout	Simulate timeout or provider outage	User sees a clear fallback; app does not freeze or invent a result	High
+TC-013	Records	Consent	Attempt to save a synthetic health record	App explains relevant data use and requires consent where designed	High
+TC-014	Records	Access isolation	Sign in as a second test user, if accounts exist	User cannot access another test user's private records	High
+TC-015	OCR	Clear prescription image	Scan a synthetic test prescription image	Extracted text is shown for user review, not silently accepted as verified	High
+TC-016	OCR	Blurry/ambiguous image	Scan a deliberately blurred synthetic sample	Low confidence/uncertainty is surfaced; app does not guess medicine/dosage	High
+TC-017	Privacy	Logs	Exercise AI, record, and SOS flows then inspect logs	No unnecessary patient details, secrets, or contact details are logged	High
+TC-018	Device support	Low-end device	Repeat critical flows on supported low-memory hardware	Critical screens remain usable; failures are handled gracefully	Medium
+TC-019	Accessibility	Large text	Enable system font scaling and navigate core screens	Important actions and emergency text remain legible and reachable	Medium
+TC-020	Permissions	Location denied	Deny location permission and open nearby-centre/SOS features	App explains limitations and continues with alternatives where possible	High
+Sample test data
+See `../sample_data/sample_data.json`. All people, contact numbers, centre names, and record contents must be synthetic placeholders. Do not send test SOS alerts to real emergency services or real contacts.
