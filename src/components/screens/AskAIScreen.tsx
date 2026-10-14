@@ -185,12 +185,18 @@ export const AskAIScreen: React.FC<AskAIScreenProps> = ({
 
       const voices = window.speechSynthesis.getVoices();
       const targetLang = langCode.toLowerCase();
-      const matchedVoice =
+      let matchedVoice =
         voices.find((v) => v.lang.toLowerCase() === targetLang) ||
         voices.find((v) => v.lang.toLowerCase().replace('_', '-') === targetLang) ||
         voices.find((v) => v.lang.toLowerCase().startsWith(targetLang.slice(0, 2))) ||
-        voices.find((v) => v.lang.toLowerCase().includes('in')) ||
-        voices[0];
+        voices.find((v) => v.name.toLowerCase().includes('telugu'));
+
+      if (!matchedVoice && (targetLang.startsWith('te') || targetLang.includes('telugu'))) {
+        matchedVoice =
+          voices.find((v) => v.lang.toLowerCase().includes('in')) ||
+          voices.find((v) => v.lang.toLowerCase().startsWith('hi')) ||
+          voices[0];
+      }
 
       if (matchedVoice) {
         utterance.voice = matchedVoice;
@@ -228,7 +234,7 @@ export const AskAIScreen: React.FC<AskAIScreenProps> = ({
     const langCode = isTelugu ? 'te' : isHindi ? 'hi' : 'en';
 
     try {
-      const maxDirectChars = isTelugu || isHindi ? 65 : 120;
+      const maxDirectChars = isTelugu || isHindi ? 90 : 130;
       const directUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(cleanText.slice(0, maxDirectChars))}&tl=${langCode}&client=tw-ob`;
       const audio = activeAudioRef.current || new Audio();
       activeAudioRef.current = audio;
@@ -243,9 +249,12 @@ export const AskAIScreen: React.FC<AskAIScreenProps> = ({
         fallbackSpeechSynthesis(cleanText, msgId, getLangDetails(langToUse).code);
       };
 
-      audio.play().catch(() => {
-        fallbackSpeechSynthesis(cleanText, msgId, getLangDetails(langToUse).code);
-      });
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          fallbackSpeechSynthesis(cleanText, msgId, getLangDetails(langToUse).code);
+        });
+      }
     } catch {
       fallbackSpeechSynthesis(cleanText, msgId, getLangDetails(langToUse).code);
     }
@@ -272,14 +281,44 @@ export const AskAIScreen: React.FC<AskAIScreenProps> = ({
     if (!cleanText) return;
 
     const langToUse = overrideLang || selectedLanguage;
-    const langInfo = getLangDetails(langToUse);
+    const isTelugu = langToUse.includes('తెలుగు') || langToUse.toLowerCase().includes('telugu');
+    const isHindi = langToUse.includes('हिंदी') || langToUse.toLowerCase().includes('hindi');
 
     setIsSpeaking(true);
     if (msgId) setCurrentSpeakingMsgId(msgId);
 
-    // Prime the audio element immediately in user interaction window
     const audio = activeAudioRef.current || new Audio();
     activeAudioRef.current = audio;
+
+    // 0. Instant static audio for greetings (guaranteed instant playback across all platforms including Vercel)
+    const isGreeting = cleanText.includes('సంజీవని') || cleanText.includes('నమస్కారం') || cleanText.includes('संजीवनी') || cleanText.includes('नमस्ते') || cleanText.includes('Sanjeevani');
+    if (isGreeting && (msgId === 'm1' || !msgId)) {
+      const staticSrc = isTelugu
+        ? '/audio/telugu_greeting.mp3'
+        : isHindi
+        ? '/audio/hindi_greeting.mp3'
+        : '/audio/english_greeting.mp3';
+
+      audio.src = staticSrc;
+      audio.onended = () => {
+        setIsSpeaking(false);
+        setCurrentSpeakingMsgId(null);
+        activeAudioRef.current = null;
+      };
+      audio.onerror = () => {
+        tryDirectAudioStream(cleanText, langToUse, msgId);
+      };
+
+      try {
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+        }
+        return;
+      } catch (e) {
+        console.warn('Static audio play prevented, trying direct stream:', e);
+      }
+    }
 
     let audioData = providedAudioBase64;
     let mimeType = providedMimeType || 'audio/mpeg';

@@ -203,17 +203,55 @@ STRICT MEDICAL GUARDRAILS:
 
       let replyText = response.text || "Thank you for asking. Please keep rest and drink fluids. Visit your nearest PHC if feeling unwell.";
 
-      // Generate voice audio in Telugu / Hindi / English (fluent, instant, 100% reliable)
+      // Generate voice audio in Telugu / Hindi / English
       let audioBase64: string | null = null;
       let audioMime: string = "audio/mpeg";
-      try {
-        const speechRes = await generateSpeechAudio(replyText, targetLangName);
-        if (speechRes?.audioBase64) {
-          audioBase64 = speechRes.audioBase64;
-          audioMime = speechRes.mimeType;
+
+      const isTeluguTarget = targetLangName.includes("తెలుగు") || targetLangName.toLowerCase().includes("telugu");
+      if (isTeluguTarget) {
+        try {
+          const client = getGeminiClient();
+          if (client) {
+            const cleanText = replyText
+              .replace(/\*\*(.*?)\*\*/g, "$1")
+              .replace(/\*(.*?)\*/g, "$1")
+              .replace(/#{1,6}\s?/g, "")
+              .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+              .slice(0, 400);
+
+            const ttsRes = await client.models.generateContent({
+              model: "gemini-3.8-flash-lite-tts",
+              contents: [{ role: "user", parts: [{ text: cleanText }] }],
+              config: {
+                responseModalities: ["AUDIO"],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: "Kore" },
+                  },
+                },
+              },
+            });
+            const gAudio = ttsRes.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            if (gAudio) {
+              audioBase64 = gAudio;
+              audioMime = ttsRes.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType || "audio/wav";
+            }
+          }
+        } catch (geminiTtsErr) {
+          console.warn("Gemini Telugu TTS in chat failed, using fallback:", geminiTtsErr);
         }
-      } catch (ttsErr) {
-        console.warn("Chat speech generation failed:", ttsErr);
+      }
+
+      if (!audioBase64) {
+        try {
+          const speechRes = await generateSpeechAudio(replyText, targetLangName);
+          if (speechRes?.audioBase64) {
+            audioBase64 = speechRes.audioBase64;
+            audioMime = speechRes.mimeType;
+          }
+        } catch (ttsErr) {
+          console.warn("Chat speech generation failed:", ttsErr);
+        }
       }
 
       let disclaimerText = "This is AI guidance, not a medical diagnosis. Please consult a qualified doctor.";
@@ -269,7 +307,45 @@ STRICT MEDICAL GUARDRAILS:
         return res.status(400).json({ error: "Text is required" });
       }
 
-      // 1. Generate via native Neural/Google Speech for Telugu/Hindi/English
+      const isTelugu = language.includes("తెలుగు") || language.toLowerCase().includes("telugu");
+
+      // 1. For Telugu: Use Gemini TTS (gemini-3.8-flash-lite-tts) for high fidelity natural speech
+      if (isTelugu) {
+        const client = getGeminiClient();
+        if (client) {
+          try {
+            const cleanText = text
+              .replace(/\*\*(.*?)\*\*/g, "$1")
+              .replace(/\*(.*?)\*/g, "$1")
+              .replace(/#{1,6}\s?/g, "")
+              .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+              .slice(0, 400);
+
+            const ttsResponse = await client.models.generateContent({
+              model: "gemini-3.8-flash-lite-tts",
+              contents: [{ role: "user", parts: [{ text: cleanText }] }],
+              config: {
+                responseModalities: ["AUDIO"],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: "Kore" },
+                  },
+                },
+              },
+            });
+
+            const audioBase64 = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            const mimeType = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType || "audio/wav";
+            if (audioBase64) {
+              return res.json({ audioBase64, format: mimeType, mimeType });
+            }
+          } catch (geminiErr) {
+            console.warn("Gemini Telugu TTS error, falling back:", geminiErr);
+          }
+        }
+      }
+
+      // 2. Generate via native Neural/Google Speech for Telugu/Hindi/English
       const speechRes = await generateSpeechAudio(text, language);
       if (speechRes?.audioBase64) {
         return res.json({
@@ -279,7 +355,7 @@ STRICT MEDICAL GUARDRAILS:
         });
       }
 
-      // 2. Fallback to Gemini TTS if available
+      // 3. Fallback to Gemini TTS if available
       const client = getGeminiClient();
       if (client) {
         const cleanText = text
