@@ -126,12 +126,11 @@ Keep changes small and document new configuration values.
 Add or update tests for changed behaviour.
 Never commit credentials or real patient information.
 Open a pull request with a summary, test results, and screenshots where relevant.
-Team
-Team name: SPARC  
+**Team name: SPARC  
 Team ID: HSC|AP|00072  
 State/UT: Andhra Pradesh
 Sai Pradeep Sathapathi — Lead Designer
-Ramyasri Swarna — Lead Software Developer
+Ramyasri Swarna — Lead Software Developer**
 Founded in 2025; pilot testing has been carried out in selected semi-rural areas of Andhra Pradesh, according to the project team.
 Disclaimer
-This project is intended to improve access to health information and services. It does not replace medical advice, diagnosis, or treatment. Features and availability depend on the actual implementation, device capabilities, network coverage, permissions, and service-provider availability.
+This project is intended to improve access to health information and services. It does not replace medical advice, diagnosis, or treatment. Features and availability depend on the actual implementation, device capabilities, network coverage, permissions, and service-provider availability.   
