@@ -154,4 +154,5 @@ See `../sample_data/sample_data.json`. All people, contact numbers, centre names
 <img width="2400" height="1918" alt="Sanjeevani_AI_Technical_Design_Part4" src="https://github.com/user-attachments/assets/37fe377a-d674-4932-8b4a-7c707feca3dc" />
 
 **Working Scenario**
+{Offline Test case is in Progress & Currently working in Online minimal Area Networks}
 <img width="1149" height="1369" alt="SOS Image" src="https://github.com/user-attachments/assets/4ec90e0e-8984-46d4-a624-eaaf22af22bd" />
